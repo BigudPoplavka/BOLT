@@ -11,7 +11,9 @@ public class Player : MonoBehaviour
     [SerializeField] private PhotonView _photonView;
 
     [SerializeField] public InteractionData _objectOnFocus;
+
     [SerializeField] private LayerMask _interactebleObjects;
+    [SerializeField] private LayerMask _pickableObjects;
 
     [SerializeField] private Animator _animator;
     [SerializeField] private Animator _headAnimator;
@@ -176,26 +178,29 @@ public class Player : MonoBehaviour
         }
 
         var ray = _camera.ScreenPointToRay(Input.mousePosition);
+        InteractionData outData = null;
 
         Debug.DrawRay(ray.origin, ray.direction, Color.red);
 
-        InteractionData outData = null;
-
-        if (Physics.Raycast(ray, out RaycastHit raycastHit, _maxInteractDistance, _interactebleObjects, QueryTriggerInteraction.Ignore))
+        if (Physics.Raycast(ray, out RaycastHit raycastHit, _maxInteractDistance, _interactebleObjects))
         {
             if (raycastHit.transform.TryGetComponent<InteractionData>(out InteractionData interactionData))
             {
-                _objectOnFocus = interactionData;
                 outData = interactionData;
-                _interactebleObjectFocus?.Invoke(interactionData);
-                _interactebleDataInstalled?.Invoke(true);
+                SendInteractDataToRenderer(interactionData);
             }
+        }
 
-            if (raycastHit.transform.TryGetComponent<PickableItem>(out PickableItem itemData))
+        if (Physics.Raycast(ray, out RaycastHit raycastHitPickable, _maxInteractDistance, _pickableObjects))
+        { 
+            if (raycastHitPickable.transform.TryGetComponent<PickableItem>(out PickableItem itemData))
             {
+                raycastHitPickable.transform.TryGetComponent<InteractionData>(out outData);
+                SendInteractDataToRenderer(outData);
+
                 if (Input.GetKeyDown(KeyCode.E))
                 {
-                    TryPickUpItem(raycastHit.transform.gameObject);
+                    TryPickUpItem(raycastHitPickable.transform.gameObject);
                 }
             }
         }
@@ -205,6 +210,13 @@ public class Player : MonoBehaviour
             _interactebleObjectFocusLeft?.Invoke(_objectOnFocus);
             _interactebleDataInstalled?.Invoke(false);
         }
+    }
+
+    private void SendInteractDataToRenderer(InteractionData interactionData)
+    {
+        _objectOnFocus = interactionData;
+        _interactebleObjectFocus?.Invoke(interactionData);
+        _interactebleDataInstalled?.Invoke(true);
     }
 
     public void GetDamage(float damage)
@@ -231,9 +243,6 @@ public class Player : MonoBehaviour
         }
 
         _itemIndex = index;
-
-        Debug.Log($"Equip slot {_itemIndex}, prev = {_prevItemIndex}");
-
         _slots.QuickSlots[index].ItemObject.SetActive(true);
 
         if(_prevItemIndex != -1)
@@ -248,15 +257,26 @@ public class Player : MonoBehaviour
     {
         if (_slots.TryAddItem(itemObject, _itemIndex))
         {
-            itemObject.SetActive(false);
+            SetPickedObjectInHand(itemObject);
 
-            itemObject.transform.SetParent(_hand);
-            itemObject.transform.position = _hand.position;
-            
-            if(_slots.QuickSlots.FindAll(x => !x.IsEmpty).Count == 1)
+            if (_slots.QuickSlots.FindAll(x => !x.IsEmpty).Count == 1)
             {
                 EquipItem(0);
             }
         }
+    }
+
+    private void SetPickedObjectInHand(GameObject itemObject)
+    {
+        itemObject.SetActive(false);
+        itemObject.transform.SetParent(_camera.transform);
+        itemObject.transform.position = _hand.position;
+        itemObject.transform.rotation = _hand.rotation;
+        itemObject.GetComponent<Rigidbody>().isKinematic = true;
+    }
+
+    private void DropItem()
+    {
+
     }
 }

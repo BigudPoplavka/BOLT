@@ -122,7 +122,6 @@ public class CharacterController : MonoBehaviour
                         transform.rotation,
                         _groundCheckDistance,
                         _groundLayerMask);
-        //return Physics.CheckSphere(_feet.position, 0.2f, _groundLayerMask);
     }
 
     public bool PlayerIsNotMoving()
